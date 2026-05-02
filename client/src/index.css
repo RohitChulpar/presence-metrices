@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+This makes the top area of your app draggable like a real window
+.drag-region {
+  -webkit-app-region: drag;
+  height: 50px; /* Must match the height set in electron.cjs */
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none; /* Allows you to click things underneath it */
+}
+
+/* Add this class to any buttons/links that sit INSIDE the title bar area 
+   so they remain clickable */
+.no-drag {
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
