@@ -3,7 +3,10 @@ import { Play, Square, Activity, ShieldCheck, LogOut, AlertCircle, Clock, User, 
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:5000');
+// ✅ Dynamic URLs
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const AI_ENGINE_URL = 'http://localhost:5001'; // Always local for webcam access
+const socket = io(API_BASE_URL);
 
 // --- CONSISTENT BRAND LOGO ---
 const PresenceMetricsLogo = ({ className = "w-10 h-10" }) => (
@@ -36,7 +39,7 @@ export default function EmployeeDashboard() {
 
   const fetchUserStats = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/auth/user/${localStorage.getItem('userId')}`);
+      const res = await axios.get(`${API_BASE_URL}/api/auth/user/${localStorage.getItem('userId')}`);
       setUserData(res.data);
     } catch (err) {
       console.error("Stats Fetch Error");
@@ -60,7 +63,7 @@ export default function EmployeeDashboard() {
     if (isMonitoring) {
       interval = setInterval(async () => {
         try {
-          const res = await axios.get('http://localhost:5001/get-status');
+          const res = await axios.get(`${AI_ENGINE_URL}/get-status`);
           const currentStatus = res.data.status;
           const globalActivity = res.data.activity; 
           setLiveStatus(currentStatus);
@@ -96,7 +99,7 @@ export default function EmployeeDashboard() {
   const toggleTransferMenu = async () => {
     if (!showTransferMenu) {
       try {
-        const res = await axios.get('http://localhost:5000/api/auth/managers');
+        const res = await axios.get(`${API_BASE_URL}/api/auth/managers`);
         setAllManagers(res.data);
         setShowTransferMenu(true);
       } catch (err) {
@@ -115,7 +118,7 @@ export default function EmployeeDashboard() {
     if (window.confirm("Transfer profile? Future data will sync to the new manager.")) {
       setIsTransferring(true);
       try {
-        await axios.post('http://localhost:5000/api/auth/update-manager', {
+        await axios.post(`${API_BASE_URL}/api/auth/update-manager`, {
           userId: localStorage.getItem('userId'),
           newManagerId: newManagerId
         });
@@ -134,10 +137,10 @@ export default function EmployeeDashboard() {
       if (!isMonitoring) {
         setShowSuccessToast(false);
         setActivityCount(0);
-        await axios.get('http://localhost:5001/start-ai');
+        await axios.get(`${AI_ENGINE_URL}/start-ai`);
         setIsMonitoring(true);
       } else {
-        await axios.get('http://localhost:5001/stop-ai');
+        await axios.get(`${AI_ENGINE_URL}/stop-ai`);
         const sessionData = {
           userId: localStorage.getItem('userId'),
           startTime: new Date(Date.now() - seconds * 1000),
@@ -146,7 +149,7 @@ export default function EmployeeDashboard() {
           averageFocus: seconds > 0 ? Math.round(((seconds - distractionSeconds) / seconds) * 100) : 100,
           activityScore: activityCount 
         };
-        await axios.post('http://localhost:5000/api/sessions/save', sessionData);
+        await axios.post(`${API_BASE_URL}/api/sessions/save`, sessionData);
         setIsMonitoring(false);
         setSeconds(0);
         setDistractionSeconds(0);
@@ -156,14 +159,14 @@ export default function EmployeeDashboard() {
         setTimeout(() => setShowSuccessToast(false), 5000);
       }
     } catch (err) {
-      alert("Error reaching AI server.");
+      alert("Error reaching AI server. Make sure your local Python engine is running.");
     }
   };
 
   const handleLogout = () => {
     if (isMonitoring) {
       if (!window.confirm("End session and logout?")) return;
-      axios.get('http://localhost:5001/stop-ai');
+      axios.get(`${AI_ENGINE_URL}/stop-ai`);
     }
     localStorage.clear();
     window.location.href = '/';
@@ -175,7 +178,6 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="h-screen w-full flex items-center justify-center relative font-sans overflow-hidden bg-slate-950 p-4">
-      
       {/* PROFESSIONAL BACKGROUND WALLPAPER */}
       <div 
         className="absolute inset-0 z-0 opacity-40 scale-105"
@@ -224,7 +226,6 @@ export default function EmployeeDashboard() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Badges and Streaks */}
             <div className="flex gap-2 mr-4">
                <div className="bg-orange-500/15 px-4 py-2 rounded-xl flex items-center gap-2 border border-orange-500/30 backdrop-blur-md">
                   <Flame size={16} className="text-orange-500 fill-orange-500" />
@@ -236,7 +237,6 @@ export default function EmployeeDashboard() {
                </div>
             </div>
 
-            {/* Transfer Dropdown - Forced to front with z-[1000] */}
             <div className="relative">
               <button 
                 onClick={toggleTransferMenu} 
@@ -262,13 +262,8 @@ export default function EmployeeDashboard() {
           </div>
         </header>
 
-        {/* DASHBOARD CONTENT - GRID LAYOUT */}
         <div className="flex-1 p-8 grid lg:grid-cols-12 gap-8 overflow-hidden">
-          
-          {/* CENTER PANEL: TIMER CONTROL */}
           <div className="lg:col-span-7 bg-white/5 border border-white/10 rounded-[3rem] p-10 flex flex-col items-center justify-center relative shadow-inner overflow-hidden">
-            
-            {/* Live Status Indicator - Top Center of Box */}
             <div className={`absolute top-8 px-6 py-2.5 rounded-full border shadow-2xl flex items-center gap-3 transition-all duration-500 ${liveStatus === 'ACTIVE' ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400' : 'bg-red-500/20 border-red-400 text-red-400'}`}>
                 <div className={`w-3 h-3 rounded-full ${liveStatus === 'ACTIVE' ? 'bg-emerald-400 animate-pulse shadow-[0_0_10px_#4ade80]' : 'bg-red-400'}`} />
                 <span className="font-black text-xs uppercase tracking-[0.3em] italic">Current Status: {liveStatus}</span>
@@ -308,10 +303,7 @@ export default function EmployeeDashboard() {
             </button>
           </div>
 
-          {/* SIDEBAR: METRICS & SECURITY */}
           <div className="lg:col-span-5 flex flex-col gap-6">
-            
-            {/* Efficiency Box */}
             <div className="bg-gradient-to-br from-indigo-600/90 to-violet-700/90 p-10 rounded-[3rem] shadow-2xl border border-white/10 flex-1 flex flex-col justify-center relative overflow-hidden group">
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
               <Activity className="text-white mb-6" size={40} />
@@ -324,7 +316,6 @@ export default function EmployeeDashboard() {
               </div>
             </div>
 
-            {/* Secure Info Card - Matching Software Description */}
             <div className="bg-slate-900/80 backdrop-blur-xl p-8 rounded-[3rem] border border-white/5 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-20"><ShieldCheck size={60} className="text-violet-500" /></div>
               <div className="flex items-center gap-2 text-violet-400 font-black text-[10px] uppercase tracking-[0.3em] mb-4">
@@ -335,7 +326,6 @@ export default function EmployeeDashboard() {
               </p>
             </div>
             
-            {/* Edge Sync Status */}
             <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center justify-between group px-10">
               <div className="flex items-center gap-4">
                 <RefreshCcw className="text-emerald-400 animate-spin-slow" size={24} />
@@ -346,7 +336,6 @@ export default function EmployeeDashboard() {
                 <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" />
               </div>
             </div>
-
           </div>
         </div>
       </div>

@@ -12,7 +12,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:5000');
+// ✅ Dynamic URLs for Cloud Connectivity
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const socket = io(API_BASE_URL);
 
 // --- CONSISTENT BRAND LOGO ---
 const PresenceMetricsLogo = ({ className = "w-8 h-8" }) => (
@@ -63,48 +65,42 @@ export default function ManagerDashboard() {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/sessions/manager-view/${managerId}`);
+      const res = await axios.get(`${API_BASE_URL}/api/sessions/manager-view/${managerId}`);
       setSessions(res.data);
     } catch (err) { console.error("Sessions fetch error"); }
   };
 
   const fetchTeamData = async () => {
     try {
-      const teamRes = await axios.get(`http://localhost:5000/api/auth/team/${managerId}`);
+      const teamRes = await axios.get(`${API_BASE_URL}/api/auth/team/${managerId}`);
       setTeam(teamRes.data);
     } catch (err) { console.error("Team fetch error"); }
   };
 
   const fetchHeatmap = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/sessions/heatmap/${managerId}`);
+      const res = await axios.get(`${API_BASE_URL}/api/sessions/heatmap/${managerId}`);
       setHeatmapData(res.data);
     } catch (err) { console.error("Heatmap fetch error"); }
   };
 
   const fetchPeriodicStats = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/sessions/stats/${managerId}?period=${statPeriod}`);
+      const res = await axios.get(`${API_BASE_URL}/api/sessions/stats/${managerId}?period=${statPeriod}`);
       setPeriodicStats(res.data);
     } catch (err) { console.error("Periodic stats fetch error"); }
   };
 
-  // BUG 1 FIX: Clear `individualStats` to null BEFORE the async fetch so the modal
-  // never renders stale data from the previously viewed employee. Without this,
-  // `selectedUser` becomes the new employee immediately but `individualStats` still
-  // holds the old employee's data until the new response arrives — causing a flash
-  // of wrong data. Setting it to null here forces the loading skeleton to show instead.
   const fetchUserInsights = async (user) => {
-    setIndividualStats(null);   // ← clear stale data immediately
-    setModalError(null);        // ← clear any previous error so skeleton shows clean
+    setIndividualStats(null); 
+    setModalError(null); 
     setSelectedUser(user);
     setIsModalLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/sessions/individual-stats/${user._id}`);
+      const res = await axios.get(`${API_BASE_URL}/api/sessions/individual-stats/${user._id}`);
       setIndividualStats(res.data);
     } catch (err) {
       console.error("Individual stats error", err);
-      // Set error message so the modal escapes the infinite spinner
       setModalError(err.response?.data?.error || "Failed to load records. Please try again.");
     } finally {
       setIsModalLoading(false);
@@ -438,11 +434,6 @@ export default function ManagerDashboard() {
         </div>
       </main>
 
-      {/* --- INDIVIDUAL INSIGHTS MODAL --- */}
-      {/* BUG 1 FIX: The loading gate now checks BOTH isModalLoading AND !individualStats.
-          This means even if isModalLoading flips to false slightly before data arrives,
-          or if the component re-renders mid-fetch, the stale data section is NEVER shown.
-          The chart and stat cards only render when individualStats is a real object. */}
       {selectedUser && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => { setSelectedUser(null); setModalError(null); }} />
@@ -461,10 +452,6 @@ export default function ManagerDashboard() {
             </div>
 
             <div className="p-10 overflow-y-auto custom-scrollbar flex-1">
-              {/* THREE-STATE GATE:
-                  1. isModalLoading → spinner (fetch in flight)
-                  2. modalError     → error UI (fetch failed, breaks infinite spinner)
-                  3. individualStats → data (fetch succeeded) */}
               {isModalLoading ? (
                 <div className="flex flex-col items-center py-20 gap-4">
                   <RefreshCw className="animate-spin text-indigo-600" size={32} />
@@ -487,14 +474,12 @@ export default function ManagerDashboard() {
                   </button>
                 </div>
               ) : !individualStats ? (
-                // Safety net: loading done, no error, but data still null (shouldn't happen)
                 <div className="flex flex-col items-center py-20 gap-4">
                   <RefreshCw className="animate-spin text-indigo-600" size={32} />
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] animate-pulse">Accessing Secure Records...</p>
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* WEEKLY PROGRESS BAR CHART */}
                   <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-200">
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 px-2 italic">Weekly Performance Sequence (Mon - Sun)</h4>
                     <div className="h-64">

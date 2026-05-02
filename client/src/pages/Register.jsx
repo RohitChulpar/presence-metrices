@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, Briefcase, Users, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import axios from 'axios';
 
+// ✅ Dynamic API Base URL
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 export default function Register() {
   const [formData, setFormData] = useState({
     username: '',
@@ -21,7 +24,8 @@ export default function Register() {
   useEffect(() => {
     const fetchManagers = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/auth/managers');
+        // ✅ Updated to use dynamic URL
+        const res = await axios.get(`${API_BASE_URL}/api/auth/managers`);
         setManagers(res.data);
       } catch (err) {
         console.error("Could not fetch managers:", err);
@@ -39,7 +43,8 @@ export default function Register() {
 
     setIsLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', formData);
+      // ✅ Updated to use dynamic URL
+      const response = await axios.post(`${API_BASE_URL}/api/auth/register`, formData);
       if (response.status === 201) {
         setNotification({ show: true, msg: "Account created successfully! Redirecting to login...", type: 'success' });
         setTimeout(() => navigate('/login'), 2500);
@@ -72,7 +77,7 @@ export default function Register() {
       {/* Center Layout Container */}
       <div className="relative z-10 w-full max-w-xl flex items-center justify-center">
         
-        {/* Form Container - Now perfectly centered */}
+        {/* Form Container */}
         <div className="w-full bg-white/95 backdrop-blur-sm rounded-[2rem] shadow-2xl p-6 md:p-8 border border-white/40 animate-in fade-in zoom-in duration-500 relative">
           <div className="text-center mb-6">
             <div className="inline-flex p-2.5 rounded-xl bg-blue-600/10 text-blue-700 mb-2">
@@ -183,7 +188,6 @@ export default function Register() {
         </div>
 
         {/* --- FLOATING SIDE NOTIFICATION --- */}
-        {/* Absolute positioning keeps the form centered while badge stays to the right */}
         {notification.show && (
           <div className="hidden lg:block absolute left-full ml-8 w-72">
             <div className={`p-6 rounded-3xl border-2 shadow-2xl backdrop-blur-md animate-in slide-in-from-left-4 duration-500 ${
@@ -211,7 +215,7 @@ export default function Register() {
           </div>
         )}
 
-        {/* Mobile Notification remains at top */}
+        {/* Mobile Notification */}
         <div className="lg:hidden absolute bottom-full mb-4 w-full px-4 left-0">
           {notification.show && (
             <div className={`p-4 rounded-2xl shadow-2xl flex items-center justify-between animate-in slide-in-from-bottom-4 ${

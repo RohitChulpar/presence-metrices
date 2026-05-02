@@ -14,6 +14,7 @@ router.post('/save', async (req, res) => {
     let focusPenalty = 0;
 
     const minutes = duration / 60;
+    // Calculation of interaction ratio to detect "Ghosting" or "Suspicious Speed"
     const interactionRatio = activityScore / (minutes || 1);
 
     if (averageFocus > 80 && interactionRatio < 150 && duration > 600) {
@@ -43,12 +44,14 @@ router.post('/save', async (req, res) => {
     await newSession.save();
 
     let badgeEarned = false;
+    // Logic for awarding deep work badges and maintaining streaks
     if (duration >= 2700 && penalizedFocus >= 90 && sessionAlerts.length === 0) {
       badgeEarned = true;
       await User.findByIdAndUpdate(userId, {
         $inc: { deepWorkBadges: 1, currentStreak: 1 }
       });
     } else if (duration >= 1800) { 
+      // Reset streak if session requirements for deep work aren't met
       await User.findByIdAndUpdate(userId, { currentStreak: 0 });
     }
 
@@ -64,7 +67,7 @@ router.post('/save', async (req, res) => {
   }
 });
 
-// 2. GET HEATMAP AGGREGATION
+// 2. GET HEATMAP AGGREGATION (Refined for Manager View)
 router.get('/heatmap/:managerId', async (req, res) => {
   try {
     const { managerId } = req.params;
@@ -168,20 +171,14 @@ router.get('/stats/:managerId', async (req, res) => {
 });
 
 // 5. INDIVIDUAL EMPLOYEE STATS WITH WEEKLY GRAPH DATA
-// FIX 1: Validate and cast userId once at the top (Bug 3 — strict ObjectId cast)
-// FIX 2: Never mutate `now` when computing week boundary (Bug 2 — date mutation)
-// FIX 3: Run the three period queries in parallel with Promise.all (performance)
 router.get('/individual-stats/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // BUG 3 FIX: Validate before casting to avoid a 500 crash on bad input
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: "Invalid userId format" });
     }
 
-    // Cast once here — used consistently in both .find() and aggregate $match
-    // so MongoDB's strict type comparison always matches stored ObjectIds
     const uId = new mongoose.Types.ObjectId(userId);
 
     const getPeriodStats = async (days) => {
@@ -204,14 +201,12 @@ router.get('/individual-stats/:userId', async (req, res) => {
       return result[0] || { totalDuration: 0, avgFocus: 0, anomalies: 0, sessions: 0 };
     };
 
-    // BUG 2 FIX: Freeze `now` and construct Monday from a COPY, never mutating `now`.
-    // The original code called now.setDate(diff) which silently rewrote `now` to Monday,
-    // causing any subsequent new Date() calls to be relative to Monday instead of today.
+    // Calculate boundary for current week without mutating the current date
     const now = new Date();
-    const dayOfWeek = now.getDay();                          // 0 = Sun … 6 = Sat
+    const dayOfWeek = now.getDay(); 
     const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
-    const startOfCurrentWeek = new Date(now);               // fresh copy — `now` untouched
+    const startOfCurrentWeek = new Date(now); 
     startOfCurrentWeek.setDate(now.getDate() - daysFromMonday);
     startOfCurrentWeek.setHours(0, 0, 0, 0);
     startOfCurrentWeek.setMilliseconds(0);
@@ -225,8 +220,8 @@ router.get('/individual-stats/:userId', async (req, res) => {
     const weeklyDataMap = dayNames.map(day => ({ day, focus: 0, count: 0 }));
 
     weeklySessions.forEach(s => {
-      const dayIdx = new Date(s.startTime).getDay(); // 0 = Sun, 1 = Mon …
-      const mappedIdx = dayIdx === 0 ? 6 : dayIdx - 1; // remap so Mon = 0, Sun = 6
+      const dayIdx = new Date(s.startTime).getDay(); 
+      const mappedIdx = dayIdx === 0 ? 6 : dayIdx - 1; 
       weeklyDataMap[mappedIdx].focus += s.averageFocus;
       weeklyDataMap[mappedIdx].count += 1;
     });
@@ -236,7 +231,7 @@ router.get('/individual-stats/:userId', async (req, res) => {
       focus: d.count > 0 ? Math.round(d.focus / d.count) : 0
     }));
 
-    // Run all three period queries in parallel instead of sequentially
+    // Parallel execution for optimized performance
     const [daily, weekly, monthly] = await Promise.all([
       getPeriodStats(0),
       getPeriodStats(7),

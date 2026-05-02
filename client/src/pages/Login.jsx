@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import axios from 'axios';
 
+// ✅ Dynamic API Base URL (Vite environment)
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +21,8 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+      // ✅ Updated to use dynamic URL
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password });
       
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('role', response.data.user.role);
